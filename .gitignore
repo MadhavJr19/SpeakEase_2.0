@@ -1,0 +1,9 @@
+# Virtual Environment
+venv/
+
+# Fine-tuned Model (DO NOT COMMIT)
+final-svarah-whisper-model/
+
+# Python cache
+__pycache__/
+*.pyc

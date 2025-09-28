@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpeakEase | Full Analysis</title>
+    <style>
+        :root { --primary-color: #007bff; --light-gray: #f8f9fa; --border-color: #dee2e6; --text-color: #212529; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--light-gray);
+            color: var(--text-color);
+            padding: 40px;
+        }
+        .container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+            width: 100%;
+            max-width: 800px;
+            margin: auto;
+        }
+        header { text-align: center; margin-bottom: 30px; }
+        h1 { font-size: 2.2rem; }
+        header p { color: #6c757d; }
+        .input-card { margin-bottom: 25px; text-align: left; }
+        .input-card h2 { font-size: 1.3rem; margin-bottom: 10px; }
+        textarea { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 1rem; }
+        .upload-controls { display: flex; gap: 15px; justify-content: center; align-items: center; }
+        button { background-color: var(--primary-color); color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500; }
+        button:disabled { background-color: #a0c7ff; }
+        .result-card { margin-top: 25px; padding: 20px; background-color: var(--light-gray); border: 1px solid #e9ecef; border-radius: 8px; }
+        .result-card h2 { font-size: 1.3rem; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; }
+        .score-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .score-item { background: white; padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); }
+        .score-item-title { font-weight: 600; color: #495057; display: block; margin-bottom: 5px; }
+        .score-item-value { font-size: 1.5rem; font-weight: 700; color: var(--primary-color); }
+        pre { white-space: pre-wrap; word-wrap: break-word; font-family: "SF Mono", "Consolas", monospace; background: white; padding: 15px; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SpeakEase Full Analysis</h1>
+            <p>Provide the original text and the recorded audio to get a detailed report.</p>
+        </header>
+
+        <div class="input-card">
+            <h2>Original Text</h2>
+            <textarea id="correctTextInput" rows="4" placeholder="Enter the text the user was supposed to read..."></textarea>
+        </div>
+
+        <div class="upload-controls">
+            <input type="file" id="audioFileInput" accept="audio/*">
+            <button id="analyzeButton" onclick="analyzeAudio()">Analyze</button>
+        </div>
+        <p id="status" style="text-align: center; margin-top: 15px; min-height: 1.2em;"></p>
+
+        <div id="results" style="display: none;">
+            <div class="result-card">
+                <h2>Summary Scores</h2>
+                <div id="summaryScores" class="score-grid"></div>
+            </div>
+            <div class="result-card">
+                <h2>Model Transcription</h2>
+                <p id="fullTranscription"></p>
+            </div>
+            <div class="result-card">
+                <h2>Word-by-Word Analysis</h2>
+                <pre id="wordAnalysis"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const analyzeButton = document.getElementById('analyzeButton');
+        const status = document.getElementById('status');
+        const resultsDiv = document.getElementById('results');
+        const summaryScoresDiv = document.getElementById('summaryScores');
+        const fullTranscriptionP = document.getElementById('fullTranscription');
+        const wordAnalysisPre = document.getElementById('wordAnalysis');
+        const correctTextInput = document.getElementById('correctTextInput');
+        const fileInput = document.getElementById('audioFileInput');
+
+        async function analyzeAudio() {
+            if (fileInput.files.length === 0 || correctTextInput.value.trim() === "") {
+                alert("Please provide both an audio file and the original text.");
+                return;
+            }
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("correct_text", correctTextInput.value);
+
+            status.textContent = "Analyzing, please wait...";
+            analyzeButton.disabled = true;
+            resultsDiv.style.display = 'none';
+
+            try {
+                const response = await fetch("/analyze/", { method: "POST", body: formData });
+                if (!response.ok) throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                const data = await response.json();
+
+                // Populate Summary Scores
+                summaryScoresDiv.innerHTML = ""; // Clear previous results
+                const scores = data.metrics;
+                for (const [key, value] of Object.entries(scores)) {
+                    const keyFormatted = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    summaryScoresDiv.innerHTML += `
+                        <div class="score-item">
+                            <span class="score-item-title">${keyFormatted}</span>
+                            <span class="score-item-value">${value}</span>
+                        </div>`;
+                }
+
+                // Populate other fields
+                fullTranscriptionP.textContent = data.full_transcription;
+                wordAnalysisPre.textContent = JSON.stringify(data.word_analysis, null, 2);
+                
+                resultsDiv.style.display = 'block';
+                status.textContent = "Analysis complete!";
+            } catch (error) {
+                status.textContent = "An error occurred. Please check the console.";
+                console.error("Error:", error);
+            } finally {
+                analyzeButton.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
